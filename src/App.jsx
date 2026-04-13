@@ -372,33 +372,29 @@ function App() {
         {/* Lado Esquerdo - Editor */}
         <section className="flex flex-col">
           <div className="bg-discord-sidebar rounded-2xl border border-discord-divider overflow-hidden shadow-2xl transition-all duration-300 flex flex-col h-[600px]">
-            
             <div className="p-4 border-b border-discord-divider bg-[#232428] flex flex-col gap-4 shadow-sm">
-              <div className="flex bg-[#1E1F22] p-1 rounded-lg self-start">
-                <button
-                  onClick={() => handleTabChange(true)}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    isAuto ? 'bg-discord-blue text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Automático
-                </button>
-                <button
-                  onClick={() => handleTabChange(false)}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    !isAuto ? 'bg-[#3F4147] text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Settings2 className="w-4 h-4" />
-                  Manual
-                </button>
-              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex bg-[#1E1F22] p-1 rounded-lg">
+                  <button
+                    onClick={() => handleTabChange(true)}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      isAuto ? 'bg-discord-blue text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Automático
+                  </button>
+                  <button
+                    onClick={() => handleTabChange(false)}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      !isAuto ? 'bg-[#3F4147] text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    Manual
+                  </button>
+                </div>
 
-              <div className="flex justify-between items-center">
-                <label htmlFor="language-select" className="font-semibold text-sm text-gray-300 uppercase tracking-wider">
-                  Linguagem {isAuto && <span className="text-discord-blue tracking-normal normal-case text-xs ml-2 font-normal">(Detectada pelo Robô)</span>}
-                </label>
                 <div className="relative">
                   <select
                     id="language-select"
@@ -428,44 +424,53 @@ function App() {
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* ANSI Toolbar */}
-            {language === 'ansi' && (
-              <div className="px-4 py-2 bg-[#2B2D31] border-b border-discord-divider flex items-center gap-3 overflow-x-auto">
-                <span className="text-[11px] font-bold text-gray-400 tracking-wider">ESTILOS ANSI:</span>
-                <div className="flex gap-1">
-                  {ANSI_STYLES.map(style => (
-                    <button
-                      key={style.label}
-                      onClick={() => insertAnsi(style.code)}
-                      title={style.label}
-                      className="p-1.5 rounded bg-[#1E1F22] text-gray-300 hover:text-white hover:bg-discord-blue transition-colors border border-transparent shadow-sm"
-                    >
-                      {style.icon}
-                    </button>
-                  ))}
-                </div>
-                <div className="w-px h-4 bg-discord-divider mx-1"></div>
-                <div className="flex gap-1.5 items-center">
-                  {ANSI_COLORS.map(color => (
-                    <button
-                      key={color.label}
-                      onClick={() => insertAnsi(color.code)}
-                      title={color.label}
-                      className={`w-5 h-5 rounded-full ${color.bg} shadow-sm border border-black/20 hover:scale-110 transition-transform`}
-                    />
-                  ))}
-                  <button
-                    onClick={() => insertAnsi('0')}
-                    title="Resetar Formatação"
-                    className="ml-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 bg-[#1E1F22] rounded cursor-pointer"
-                  >
-                    RESET
-                  </button>
-                </div>
+
+              <div className="flex items-center gap-0">
+                <label htmlFor="language-select" className="font-semibold text-sm text-gray-300 uppercase tracking-wider">
+                  Linguagem
+                </label>
+                {isAuto && (
+                  <span className="text-discord-blue tracking-normal normal-case text-xs ml-2 font-normal">(Detectada pelo Robô)</span>
+                )}
               </div>
-            )}
+
+              {/* ANSI Toolbar — inside header so both sides grow together */}
+              {language === 'ansi' && (
+                <div className="flex items-center gap-3 overflow-x-auto">
+                  <span className="text-[11px] font-bold text-gray-400 tracking-wider">ESTILOS ANSI:</span>
+                  <div className="flex gap-1">
+                    {ANSI_STYLES.map(style => (
+                      <button
+                        key={style.label}
+                        onClick={() => insertAnsi(style.code)}
+                        title={style.label}
+                        className="p-1.5 rounded bg-[#1E1F22] text-gray-300 hover:text-white hover:bg-discord-blue transition-colors border border-transparent shadow-sm"
+                      >
+                        {style.icon}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="w-px h-4 bg-discord-divider mx-1"></div>
+                  <div className="flex gap-1.5 items-center">
+                    {ANSI_COLORS.map(color => (
+                      <button
+                        key={color.label}
+                        onClick={() => insertAnsi(color.code)}
+                        title={color.label}
+                        className={`w-5 h-5 rounded-full ${color.bg} shadow-sm border border-black/20 hover:scale-110 transition-transform`}
+                      />
+                    ))}
+                    <button
+                      onClick={() => insertAnsi('0')}
+                      title="Resetar Formatação"
+                      className="ml-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 bg-[#1E1F22] rounded cursor-pointer"
+                    >
+                      RESET
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="p-1 bg-discord-sidebar flex-grow">
               <textarea
@@ -485,11 +490,10 @@ function App() {
         {/* Lado Direito - Preview & Ações */}
         <section className="flex flex-col">
           <div className="bg-discord-sidebar rounded-2xl border border-discord-divider overflow-hidden shadow-2xl flex flex-col h-[600px] relative">
-            <div className={`p-4 border-b border-discord-divider bg-[#232428] flex justify-between items-center shadow-sm box-border ${language === 'ansi' ? 'h-[171px]' : 'h-[133px]'} transition-all duration-300`}>
-              <div className="h-full flex flex-col justify-end pb-1 w-full">
+            <div className="p-4 border-b border-discord-divider bg-[#232428] flex flex-col gap-4 shadow-sm">
                 
                 {/* Character Counter Indicator & Nitro Toggle */}
-                <div className="mb-2 flex justify-between items-center w-full">
+                <div className="flex justify-between items-center w-full">
                   <div className="flex bg-[#1E1F22] p-0.5 rounded-lg">
                     <button
                       onClick={() => setIsNitro(false)}
@@ -518,7 +522,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center w-full mt-auto">
+                <div className="flex justify-between items-center w-full">
                   {language === 'ansi' ? (
                     <div className="flex bg-[#1E1F22] p-1 rounded-lg">
                       <button 
@@ -578,11 +582,10 @@ function App() {
                     </button>
                   )}
                 </div>
-              </div>
             </div>
             
-            <div className="p-4 bg-discord-sidebar flex-grow overflow-hidden flex flex-col">
-              <div className="bg-[#1E1F22] border border-[#1E1F22] rounded-lg p-4 font-mono text-[13px] leading-relaxed overflow-auto shadow-inner flex-grow relative group">
+            <div className="p-1 bg-discord-sidebar flex-grow overflow-hidden flex flex-col">
+              <div className="bg-[#1E1F22] border border-[#1E1F22] rounded-lg p-5 font-mono text-[14px] leading-relaxed overflow-auto shadow-inner flex-grow relative group">
                 {code ? (
                   <>
                     {language === 'ansi' && ansiPreviewMode === 'rendered' ? (
