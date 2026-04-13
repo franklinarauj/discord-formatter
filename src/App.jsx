@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Copy, Check, TerminalSquare, Sparkles, Settings2, History, AlertTriangle, Bold, Underline, UserRound, Code2, Trash2, WandSparkles } from 'lucide-react';
+import { Copy, Check, TerminalSquare, Sparkles, Settings2, History, AlertTriangle, Bold, Underline, UserRound, Code2, Trash2, WandSparkles, Gem } from 'lucide-react';
 import flourite from 'flourite';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -91,6 +91,62 @@ function renderAnsiToReact(text) {
   return result;
 }
 
+/**
+ * Divide o código em pedaços que cabem no limite do Discord.
+ * Tenta quebrar em novas linhas para manter a legibilidade.
+ */
+const getCodeChunks = (code, language, limit) => {
+  const startTag = `\`\`\`${language}\n`;
+  const endTag = `\n\`\`\``;
+  const overhead = startTag.length + endTag.length;
+  const maxContentPerChunk = limit - overhead;
+
+  if (!code) return [''];
+  if (code.length + overhead <= limit) {
+    return [code];
+  }
+
+  const chunks = [];
+  let currentPos = 0;
+
+  while (currentPos < code.length) {
+    let chunkSize = maxContentPerChunk;
+    
+    if (currentPos + chunkSize >= code.length) {
+      chunks.push(code.substring(currentPos));
+      break;
+    }
+
+    let chunk = code.substring(currentPos, currentPos + chunkSize);
+    const lastNewline = chunk.lastIndexOf('\n');
+
+    if (lastNewline > chunkSize * 0.2) {
+      chunkSize = lastNewline + 1;
+      chunk = code.substring(currentPos, currentPos + chunkSize);
+    }
+
+    chunks.push(chunk);
+    currentPos += chunkSize;
+  }
+
+  return chunks;
+};
+
+const saveToHistory = (c, l, setHistory) => {
+  const newEntry = { 
+    id: Math.random().toString(36).substr(2, 9),
+    code: c, 
+    language: l, 
+    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+  };
+  
+  setHistory(prev => {
+    const next = [newEntry, ...prev.filter(h => h.code !== c)].slice(0, 5);
+    localStorage.setItem('discord-formatter-history', JSON.stringify(next));
+    return next;
+  });
+};
+
 const loadDraft = () => {
   try {
     const draft = localStorage.getItem('discord-formatter-draft');
@@ -106,7 +162,9 @@ function App() {
   const [code, setCode] = useState(initialDraft?.code || '');
   const [language, setLanguage] = useState(initialDraft?.language || 'javascript');
   const [isAuto, setIsAuto] = useState(initialDraft?.isAuto !== undefined ? initialDraft.isAuto : true);
+  const [isNitro, setIsNitro] = useState(initialDraft?.isNitro || false);
   const [copied, setCopied] = useState(false);
+  const [copyStates, setCopyStates] = useState({}); // Para múltiplos botões de cópia
   const [ansiPreviewMode, setAnsiPreviewMode] = useState('raw'); // 'raw' | 'rendered'
   
   const [history, setHistory] = useState(() => {
@@ -135,8 +193,8 @@ function App() {
 
   // Save drafts persistently in real-time
   useEffect(() => {
-    localStorage.setItem('discord-formatter-draft', JSON.stringify({ code, language, isAuto }));
-  }, [code, language, isAuto]);
+    localStorage.setItem('discord-formatter-draft', JSON.stringify({ code, language, isAuto, isNitro }));
+  }, [code, language, isAuto, isNitro]);
 
   // Efeito para detecção automática
   useEffect(() => {
@@ -168,9 +226,12 @@ function App() {
     }
   };
 
+  const charLimit = isNitro ? 4000 : 2000;
   const formattedCode = code ? `\`\`\`${language}\n${code}\n\`\`\`` : '';
   const charCount = formattedCode.length;
-  const isOverLimit = charCount > 2000;
+  const isOverLimit = charCount > charLimit;
+  
+  const chunks = getCodeChunks(code, language, charLimit);
 
   const handleCopy = async () => {
     if (!code) return;
@@ -179,24 +240,26 @@ function App() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
 
-      // Save History (Max 5)
-      const newEntry = { 
-        id: Date.now(),
-        code, 
-        language, 
-        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-      };
-      
-      setHistory(prev => {
-        const next = [newEntry, ...prev.filter(h => h.code !== code)].slice(0, 5);
-        localStorage.setItem('discord-formatter-history', JSON.stringify(next));
-        return next;
-      });
-
+      saveToHistory(code, language, setHistory);
     } catch (err) {
       console.error('Failed to copy', err);
     }
   };
+
+  const handleCopyChunk = async (chunk, index) => {
+    const chunkText = `\`\`\`${language}\n${chunk}\n\`\`\``;
+    try {
+      await navigator.clipboard.writeText(chunkText);
+      setCopyStates(prev => ({ ...prev, [index]: true }));
+      setTimeout(() => setCopyStates(prev => ({ ...prev, [index]: false })), 2000);
+      
+      if (index === 0) saveToHistory(code, language, setHistory); // Salva o original no histórico apenas uma vez
+    } catch (err) {
+      console.error('Failed to copy chunk', err);
+    }
+  };
+
+
 
   const loadHistoryItem = (item) => {
     setCode(item.code);
@@ -315,7 +378,7 @@ function App() {
                 <button
                   onClick={() => handleTabChange(true)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    isAuto ? 'bg-[#3F4147] text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                    isAuto ? 'bg-discord-blue text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" />
@@ -409,7 +472,9 @@ function App() {
                 ref={textareaRef}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="// Cole ou digite seu código bruto aqui... a sintaxe será detectada."
+                placeholder={isAuto 
+                  ? "// Cole ou digite seu código aqui... a linguagem será detectada automaticamente." 
+                  : "// Digite seu código e escolha a linguagem manualmente no seletor acima."}
                 className="w-full h-full bg-discord-code-bg border border-transparent rounded-lg p-5 font-mono text-[14px] leading-relaxed resize-none outline-none focus:ring-2 focus:ring-discord-blue/50 transition-all text-gray-300 placeholder-gray-500"
                 spellCheck="false"
               />
@@ -423,12 +488,34 @@ function App() {
             <div className={`p-4 border-b border-discord-divider bg-[#232428] flex justify-between items-center shadow-sm box-border ${language === 'ansi' ? 'h-[171px]' : 'h-[133px]'} transition-all duration-300`}>
               <div className="h-full flex flex-col justify-end pb-1 w-full">
                 
-                {/* Character Counter Indicator */}
-                <div className="mb-2 self-end text-xs font-mono font-medium flex items-center gap-1.5">
-                  <span className={isOverLimit ? 'text-red-500' : 'text-gray-400'}>
-                    {charCount} <span className="opacity-50">/</span> 2000
-                  </span>
-                  {isOverLimit && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+                {/* Character Counter Indicator & Nitro Toggle */}
+                <div className="mb-2 flex justify-between items-center w-full">
+                  <div className="flex bg-[#1E1F22] p-0.5 rounded-lg">
+                    <button
+                      onClick={() => setIsNitro(false)}
+                      className={`px-3 py-1 text-[10px] uppercase tracking-wider font-bold rounded transition-all ${
+                        !isNitro ? 'bg-[#3F4147] text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      Padrão
+                    </button>
+                    <button
+                      onClick={() => setIsNitro(true)}
+                      className={`px-3 py-1 text-[10px] uppercase tracking-wider font-bold rounded transition-all flex items-center gap-1 ${
+                        isNitro ? 'bg-discord-blue text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      <Gem className="w-2.5 h-2.5" />
+                      Nitro
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-medium">
+                    <span className={isOverLimit ? 'text-red-500' : 'text-gray-400'}>
+                      {charCount} <span className="opacity-50">/</span> {charLimit}
+                    </span>
+                    {isOverLimit && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center w-full mt-auto">
@@ -455,22 +542,41 @@ function App() {
                     </h2>
                   )}
 
-                  <button
-                    onClick={handleCopy}
-                    disabled={!code || isOverLimit}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${
-                      isOverLimit 
-                        ? 'bg-red-500/20 text-red-400 cursor-not-allowed border border-red-500/30'
-                        : copied 
-                          ? 'bg-green-600 text-white' 
-                          : !code 
-                            ? 'bg-discord-blue/30 text-white/40 cursor-not-allowed'
-                            : 'bg-discord-blue text-white hover:bg-discord-blue-hover shadow-lg hover:shadow-discord-blue/30'
-                    }`}
-                  >
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Copiado!' : 'Copiar p/ Markdown'}
-                  </button>
+                  {chunks.length > 1 ? (
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {chunks.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleCopyChunk(chunks[idx], idx)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                            copyStates[idx]
+                              ? 'bg-green-600 text-white'
+                              : 'bg-discord-blue/20 text-discord-blue hover:bg-discord-blue hover:text-white border border-discord-blue/30'
+                          }`}
+                        >
+                          {copyStates[idx] ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          Parte {idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleCopy}
+                      disabled={!code || isOverLimit}
+                      className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${
+                        isOverLimit 
+                          ? 'bg-red-500/20 text-red-400 cursor-not-allowed border border-red-500/30'
+                          : copied 
+                            ? 'bg-green-600 text-white' 
+                            : !code 
+                              ? 'bg-discord-blue/30 text-white/40 cursor-not-allowed'
+                              : 'bg-discord-blue text-white hover:bg-discord-blue-hover shadow-lg hover:shadow-discord-blue/30'
+                      }`}
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied ? 'Copiado!' : 'Copiar p/ Markdown'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
